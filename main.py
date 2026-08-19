@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 from rich.console import Console
 from rich.table import Table
 import json
@@ -7,7 +7,7 @@ TASKS_FILE = "tasks.json"
 
 class Task(BaseModel):
     id: int 
-    title: str
+    title: str =Field(..., min_length=1, max_length=100)
     description: str | None = None
     completed: bool = False
 
@@ -39,10 +39,12 @@ def display_tasks(tasks):
         console.print(table)
 
 def load_tasks():
-    with open(TASKS_FILE, "r") as f:
-        data = json.load(f)
-    return [Task(**task) for task in data]
-
+    try:
+        with open(TASKS_FILE, "r") as f:
+            data = json.load(f)
+        return [Task(**task) for task in data]
+    except FileNotFoundError:
+        return []
 
 def save_tasks(tasks):
     with open(TASKS_FILE, "w") as f:
@@ -56,10 +58,18 @@ def get_next_task_id(tasks):
 
 
 def create_task(tasks, title, description=None):
-    new_task = Task(id=get_next_task_id(tasks), title=title, description=description)
-    tasks.append(new_task)
-    save_tasks(tasks)
-    return new_task
+    console = Console()
+    try:
+        new_task = Task(id=get_next_task_id(tasks), title=title, description=description)
+        tasks.append(new_task)
+        save_tasks(tasks)
+      
+        console.print("Task added successfully.", style="bold green")
+        return new_task
+    
+    except Exception as e:
+        console.print(f"Error creating task: {e}", style="bold red")
+        return None
 
 
 def get_task_by_id(tasks, task_id):
@@ -92,6 +102,7 @@ def delete_task(tasks, task_id):
 
 
 def main():
+    console = Console() 
     tasks = load_tasks()
     while True:
         display_menu()
@@ -105,33 +116,41 @@ def main():
             title = input("Enter task title: ")
             description = input("Enter task description (optional): ")
             new_task = create_task(tasks, title, description)
-            print("Task added successfully.")
 
         elif choice == "3":
-            task_id = int(input("Enter task ID to delete: "))
-            if delete_task(tasks, task_id):
-                print("Task deleted successfully.")
-            else:
-                print("Task not found.")
+            try:
+                task_id = int(input("Enter task ID to delete: "))
+                if delete_task(tasks, task_id):
+                    console.print("Task deleted successfully.", style="bold green")
+                else:
+                    console.print("Task not found.", style="bold red")
+            except ValueError:
+                console.print("Invalid task ID.", style="bold red")
+
 
         elif choice == "4":
-            task_id = int(input("Enter task ID to mark as completed: "))
-            task = get_task_by_id(tasks, task_id)
-            if task:
-                task.completed = True
-                save_tasks(tasks)
-                print("Task marked as completed.")
-            else:
-                print("Task not found.")
-       
+            try:
+                task_id = int(input("Enter task ID to mark as completed: "))
+                task = get_task_by_id(tasks, task_id)
+                if task:
+                    task.completed = True
+                    save_tasks(tasks)
+                    console.print("Task marked as completed.", style="bold green")
+                else:
+                    console.print("Task not found.", style="bold red")
+            except ValueError:
+                console.print("Invalid task ID.", style="bold red")
+
         elif choice == "4":
             break
         
         elif choice == "5":
+            console.print("Exiting the Task Manager. Goodbye!", style="bold green")
             break
 
         else:
-            print("Invalid option. Please try again.")
+            console = Console()
+            console.print("Invalid option. Please try again.", style="bold red")
 
 if __name__ == "__main__":
     main()

@@ -5,10 +5,18 @@ import json
 
 TASKS_FILE = "tasks.json"
 
+Priority_Map = {
+    1: "High",  
+    2: "Medium",
+    3: "Low"
+}
+
+
 class Task(BaseModel):
     id: int 
     title: str =Field(..., min_length=1, max_length=100)
     description: str | None = None
+    priority: int = Field(1, ge=1, le=3)
     completed: bool = False
 
 def display_menu():
@@ -21,20 +29,17 @@ def display_menu():
     console.print("5. Exit")    
 
 def display_tasks(tasks):
-    if not tasks:
-       console = Console()
-       console.print("No tasks available.", style="bold red") 
-    else:
         console = Console()
         table = Table(title="Task List")
         table.add_column("ID", justify="right", style="cyan", no_wrap=True)
-        table.add_column("Title", style="magenta")
-        table.add_column("Description", style="green")
-        table.add_column("Completed", justify="center", style="red")
+        table.add_column("Title", style="bold green")
+        table.add_column("Description", style="magenta")
+        table.add_column("Priority", justify="center", style="blue")
+        table.add_column("Completed", justify="center", style="yellow")
     
         for task in tasks:
             completed_status = "Yes" if task.completed else "Pending"
-            table.add_row(str(task.id), task.title, task.description or "", completed_status)
+            table.add_row(str(task.id), task.title, task.description or "", Priority_Map.get(task.priority, "Unknown"), completed_status)
     
         console.print(table)
 
@@ -57,10 +62,10 @@ def get_next_task_id(tasks):
     return max(task.id for task in tasks) + 1       
 
 
-def create_task(tasks, title, description=None):
+def create_task(tasks, title, priority, description=None):
     console = Console()
     try:
-        new_task = Task(id=get_next_task_id(tasks), title=title, description=description)
+        new_task = Task(id=get_next_task_id(tasks), title=title, priority=priority, description=description)
         tasks.append(new_task)
         save_tasks(tasks)
       
@@ -79,11 +84,13 @@ def get_task_by_id(tasks, task_id):
     return None
 
 
-def update_task(tasks, task_id, title=None, description=None, completed=None):
+def update_task(tasks, task_id, title=None, priority=None, description=None, completed=None):
     task = get_task_by_id(tasks, task_id)
     if task:
         if title is not None:
             task.title = title
+        if priority is not None:
+            task.priority = priority
         if description is not None:
             task.description = description
         if completed is not None:
@@ -110,12 +117,31 @@ def main():
         
 
         if choice == "1":
+            if not tasks:
+                console.print("No tasks available.", style="bold red")
+            else:               
+                console.print("1. Sorted by Priority", style="bold yellow")
+                console.print("2. Sorted by date of creation", style="bold yellow")
+                sort_choice = input("Choose sorting option: ")
+                if sort_choice == "1":
+                    tasks.sort(key=lambda x: x.priority)
+                elif sort_choice == "2":
+                    tasks.sort(key=lambda x: x.id)
                 display_tasks(tasks)
 
         elif choice == "2":
             title = input("Enter task title: ")
+            console.print("Select task priority (1-High, 2-Medium, 3-Low): ",style="bold yellow")
+            try:
+                priority = int(input("Enter priority (1-3): "))
+                if priority not in [1, 2, 3]:
+                    console.print("Invalid priority. Please enter a number between 1 and 3.", style="bold red")
+                    continue
+            except ValueError:
+                console.print("Invalid input. Please enter a number between 1 and 3.", style="bold red")
+                continue
             description = input("Enter task description (optional): ")
-            new_task = create_task(tasks, title, description)
+            new_task = create_task(tasks, title, priority, description)
 
         elif choice == "3":
             try:
